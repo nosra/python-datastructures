@@ -1,0 +1,23 @@
+// B+ Tree
+digraph {
+	node [fontname=Courier shape=record]
+	n0 [label="{INode | 25}" color=black shape=record]
+	n1 [label="{INode | 15}" color=black shape=record]
+	n2 [label="{Leaf | 5}" color=blue shape=box]
+	n1 -> n2
+	n3 [label="{Leaf | 15}" color=blue shape=box]
+	n1 -> n3
+	n0 -> n1
+	n4 [label="{INode | 35 | 45}" color=black shape=record]
+	n5 [label="{Leaf | 25 | 30}" color=blue shape=box]
+	n4 -> n5
+	n6 [label="{Leaf | 35 | 40}" color=blue shape=box]
+	n4 -> n6
+	n7 [label="{Leaf | 45 | 55}" color=blue shape=box]
+	n4 -> n7
+	n0 -> n4
+	n2 -> n3 [label=next color=gray constraint=false style=dashed]
+	n3 -> n5 [label=next color=gray constraint=false style=dashed]
+	n5 -> n6 [label=next color=gray constraint=false style=dashed]
+	n6 -> n7 [label=next color=gray constraint=false style=dashed]
+}

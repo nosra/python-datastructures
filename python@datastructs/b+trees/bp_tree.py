@@ -41,7 +41,7 @@ class Tree:
         Returns:
             tuple (leaf, offset, path): 
                 leaf (LNode): the leaf containing the key
-                offset (int): offset to the key within the leaf
+                offset (int): offset to the key within the leaf; None is the key does not exist.
                 path (list[Node]): a path representing the nodes traversed to the leaf
         '''
         
@@ -165,6 +165,168 @@ class Tree:
             # leaf, but not the root. we need to tell the parent we've split. passing in the p_idx and the number to ascend
             self.split_up(path, -2, promote, right)
 
+    # get the minimum from a node
+    def get_min_from_node(self, node: INode) -> int:
+        cur = node
+        while not cur.is_leaf:
+            cur = cur.children[0]
+        return cur.keys[0]
+        
+    def delete(self, key):
+        '''
+        Deletes a value from the B+, maintaining its properties
+
+        Parameters:
+            key (int): Key to delete
+        '''
+        # guard cases
+        if self.root is None:
+            return
+        
+        # grab the leaf of the key (if it exists)
+        leaf, offset, path = self.search(key)
+        if offset is None:
+            print(f"[+] Deletion: key {key} does not exist")
+            return
+        
+        # calculate minimum number of keys within node
+        # a node can have a maximum of self.node_capacity + 1 children
+        # therefore, a node should have a minimum of (m+1) / 2 children
+        min_children = util.ceildiv((self.node_capacity + 1), 2)
+
+        # a node can have a maximum of self.node_capacity keys
+        # a node must have a minimum of (self.node_capacity + 1) // 2 - 1 keys
+        min_keys = util.ceildiv((self.node_capacity + 1), 2) - 1
+
+        # remove nodes
+        leaf.keys.pop(offset)
+        leaf.values.pop(offset)
+        
+        # solve invariants
+
+        # trivial case -- we are the root
+        if self.root is leaf:
+            # trivial case
+            if len(leaf.keys) == 0:
+                self.root = None
+            return
+        
+        # case 1 -- we have enough keys to remove
+        if len(leaf.keys) >= min_keys:
+            return
+
+        # case 2 -- underflow, borrow a first key from the sibling
+        parent: INode = path[-2]
+        idx = parent.children.index(leaf)
+
+        right_sibling: LNode | None = None
+        if idx + 1 < len(parent.children):
+            right_sibling = parent.children[idx + 1]
+
+        if(right_sibling is not None and len(right_sibling.keys) > min_keys):
+            # borrow!
+            rs_min_key = right_sibling.keys.pop(0)
+            rs_min_value = right_sibling.values.pop(0)
+
+            leaf.keys.append(rs_min_key)
+            leaf.values.append(rs_min_value)
+
+            rs_promote_key = right_sibling.keys[0]
+            parent.keys[idx] = rs_promote_key
+            return
+
+        # okay, can't burrow from the right sibling. check the left
+        left_sibling: LNode | None = None
+        if idx - 1 >= 0:
+            left_sibling = parent.children[idx - 1]
+        
+        if(left_sibling is not None and len(left_sibling.keys) > min_keys):
+            # borrow
+            ls_min_key = left_sibling.keys.pop(-1)
+            ls_min_value = left_sibling.values.pop(-1)
+
+            leaf.keys.insert(0, ls_min_key)
+            leaf.values.insert(0, ls_min_value)
+
+            # promote
+            parent.keys[idx - 1] = leaf.keys[0]
+            return
+        
+        # okay, neither the left nor right sibling can burrow. we must merge
+        if(left_sibling is not None):
+            # move all the keys from the leaf to the left sibling
+            left_sibling.keys.extend(leaf.keys)
+            left_sibling.values.extend(leaf.values)
+
+            # LL plumbing
+            left_sibling.next = leaf.next
+
+            # remove the leaf from parent & the separator key between left_sibling and leaf
+            parent.children.pop(idx)
+            parent.keys.pop(idx - 1)
+
+            merged_node = left_sibling
+        else:
+            # no left, but there is right!
+            right_sibling = parent.children[idx + 1]
+
+            # move all key/values
+            leaf.keys.extend(right_sibling.keys)
+            leaf.values.extend(right_sibling.values)
+
+            # LL plumbing
+            leaf.next = right_sibling.next
+
+            # remove child & separator key
+            parent.children.pop(idx + 1)
+            parent.keys.pop(idx)
+
+            merged_node = leaf
+
+        # it is possible, now, for the parent to underflow...
+
+        # case 1: parent is root and became empty
+        if parent is self.root and len(parent.keys) == 0:
+            # root had one child, so the tree height now shrinks
+            self.root = parent.children[0]
+            return
+        
+        # case 2: internal node underflow -- this gets dank
+        if parent is not self.root and len(parent.keys) < min_keys:
+            # TODO: implement internal node underflow handling
+            pass
+
+    def range(self, lb, ub):
+        # grab the leaf
+        node, offset, path = self.search(lb)
+        vals = []
+
+        # grab the lower bound in the leaves
+        lowest_idx = None
+        if offset is None:
+            lowest_idx = util.bp_binary_search(node.keys, lb)
+        else:
+            lowest_idx = offset
+
+        while(True):
+            print(node.keys)
+            if(lowest_idx >= len(node.keys)):
+                # skip to the next node
+                node = node.next
+                lowest_idx = 0
+
+            # get the lowest value
+            key = node.keys[lowest_idx]
+            vals.append(node.values[lowest_idx])
+            
+            if(key >= ub):
+                break
+
+            # iterate through the keys
+            lowest_idx += 1
+        
+        return vals
+
 # -------------------
 # TESTING FUNCTIONS
 # -------------------
@@ -252,7 +414,17 @@ def stress_insert_random(tree: Tree, num_inserts: int = 1000, key_max: int = 100
 
 if __name__ == "__main__":
     # test cases
-    tree = Tree(10)
-    stress_insert_random(tree, num_inserts=2000, key_max=2000)
+    tree = Tree(2)
+    tree.insert(25,  'test')
+    tree.insert(15, 'test')
+    tree.insert(35, 'test')
+    tree.insert(45, 'test')
+    tree.insert(5, 'test')
+    tree.insert(20, 'test')
+    tree.insert(30, 'test')
+    tree.insert(40, 'test')
+    tree.insert(55, 'test')
+
+    tree.delete(20)
 
     to_graphviz(tree, "bp_tree_example")
