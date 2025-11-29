@@ -293,12 +293,15 @@ class Tree:
         
         # case 2: internal node underflow -- this gets dank
         if parent is not self.root and len(parent.keys) < min_keys:
-            # TODO: implement internal node underflow handling
+            # TODO: implement internal node underflow handling recursively
             pass
 
     def range(self, lb, ub):
+        if self.root is None:
+            return []
+        
         # grab the leaf
-        node, offset, path = self.search(lb)
+        node, offset, _path = self.search(lb)
         vals = []
 
         # grab the lower bound in the leaves
@@ -308,21 +311,21 @@ class Tree:
         else:
             lowest_idx = offset
 
-        while(True):
-            print(node.keys)
+        while node is not None:
             if(lowest_idx >= len(node.keys)):
                 # skip to the next node
                 node = node.next
                 lowest_idx = 0
+                continue
 
             # get the lowest value
             key = node.keys[lowest_idx]
-            vals.append(node.values[lowest_idx])
             
-            if(key >= ub):
+            if(key > ub):
                 break
 
             # iterate through the keys
+            vals.append(node.values[lowest_idx])
             lowest_idx += 1
         
         return vals
@@ -414,17 +417,21 @@ def stress_insert_random(tree: Tree, num_inserts: int = 1000, key_max: int = 100
 
 if __name__ == "__main__":
     # test cases
-    tree = Tree(2)
-    tree.insert(25,  'test')
-    tree.insert(15, 'test')
-    tree.insert(35, 'test')
-    tree.insert(45, 'test')
-    tree.insert(5, 'test')
-    tree.insert(20, 'test')
-    tree.insert(30, 'test')
-    tree.insert(40, 'test')
-    tree.insert(55, 'test')
+    tree = Tree(5)
+    
+    # tree.insert(25,  'test')
+    # tree.insert(15, 'test')
+    # tree.insert(35, 'test')
+    # tree.insert(45, 'test')
+    # tree.insert(5, 'test')
+    # tree.insert(20, 'test')
+    # tree.insert(30, 'test')
+    # tree.insert(40, 'test')
+    # tree.insert(55, 'test')
 
-    tree.delete(20)
+    # tree.delete(20)
+
+    stress_insert_random(tree, 1000, 1000)
+    print(tree.range(20, 40))
 
     to_graphviz(tree, "bp_tree_example")
